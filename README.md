@@ -29,7 +29,13 @@ git clone https://github.com/your-username/multi-turn-evaluation.git
 cd multi_turn_eval
 pip install -r requirements.txt
 ```
-3. Run the main function in `multi_turn_instruct_following_eval_vllm.py`:
+
+3. Download the data from huggingface:
+```
+git clone https://huggingface.co/datasets/facebook/Multi-IF data/Multi-IF
+```
+
+4. Run the main function in `multi_turn_instruct_following_eval_vllm.py`:
 ```bash
 python multi_turn_instruct_following_eval_vllm.py \
         --model_path <MODEL_PATH> \
@@ -45,19 +51,19 @@ For example, for Meta-Llama-3.1-70B-Instruct,
 python multi_turn_instruct_following_eval_vllm.py \
         --model_path meta-llama/Llama-3.1-70B-Instruct \
         --tokenizer_path meta-llama/Llama-3.1-70B-Instruct \
-        --input_data_csv dataset/multi_turn_sample_v6.csv \
+        --input_data_csv data/Multi-IF/multiIF_20241018.csv \
         --batch_size 4 \
         --tensor_parallel_size 8
 ```
 
 Or for running evaluation via API please use
 
-3. Run the main function in `multi_turn_instruct_following_eval_api.py` with `claude-3.5-sonnet-20240620`:
+4. Run the main function in `multi_turn_instruct_following_eval_api.py` with `claude-3.5-sonnet-20240620`:
 ```bash
 python multi_turn_instruct_following_eval_api.py \
         --max_workers 5 \
         --api_model_name claude-3.5-sonnet-20240620 \
-        --input_data_csv dataset/multiIF_202410172014.data \
+        --input_data_csv data/Multi-IF/multiIF_20241018.csv \
         --max_new_tokens 1024 \
         --steps 1 2 3
 ```
