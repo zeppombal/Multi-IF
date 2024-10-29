@@ -62,6 +62,16 @@ python multi_turn_instruct_following_eval_api.py \
         --steps 1 2 3
 ```
 
+## Bibtex
+If you use the code or benchmark, please consider citing the following paper:
+```
+@article{he2024multi,
+  title={Multi-IF: Benchmarking LLMs on Multi-Turn and Multilingual Instructions Following},
+  author={He, Yun and Jin, Di and Wang, Chaoqi and Bi, Chloe and Mandyam, Karishma and Zhang, Hejia and Zhu, Chen and Li, Ning and Xu, Tengyu and Lv, Hongjiang and others},
+  journal={arXiv preprint arXiv:2410.15553},
+  year={2024}
+}
+```
 
 ## Contributing
 
