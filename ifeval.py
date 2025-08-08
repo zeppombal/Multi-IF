@@ -35,6 +35,8 @@ except ImportError:
     emoji = None
 import nltk
 
+nltk.download("punkt_tab")
+
 logger = logging.getLogger()
 
 WORD_LIST = [
@@ -1676,7 +1678,7 @@ def count_words(text):
         tokens = tokenizer.tokenize(text)
         num_words = len(tokens)
     except:
-        print('Failed to count for', text)
+        print("Failed to count for", text)
         return 0
     return num_words
 
@@ -1690,7 +1692,9 @@ def split_chinese_japanese(lines: str) -> Iterable[str]:
     """
     for line in lines.splitlines():
         for sent in re.findall(
-            r"[^!?。\.\!\?\！\？\．\n]+[!?。\.\!\?\！\？\．\n]?", line.strip(), flags=re.U
+            r"[^!?。\.\!\?\！\？\．\n]+[!?。\.\!\?\！\？\．\n]?",
+            line.strip(),
+            flags=re.U,
         ):
             yield sent
 
@@ -1704,9 +1708,7 @@ def count_words_chinese_japanese(text: str) -> int:
         >Out: 19
     """
     # Non alpha numeric patterns in latin and asian languages.
-    non_alphanumeric_patterns = (
-        r"[\\.\!\?\．\/_,\{\}<>:;$%^&*(+\"\'+——！，。？、`~@#￥……（）：；《）《》“”()\[\]»〔〕\-「」]+"
-    )
+    non_alphanumeric_patterns = r"[\\.\!\?\．\/_,\{\}<>:;$%^&*(+\"\'+——！，。？、`~@#￥……（）：；《）《》“”()\[\]»〔〕\-「」]+"
     text = re.sub(non_alphanumeric_patterns, "", text)
     if emoji:
         emoji_cnt = emoji.emoji_count(text)  # count emojis
@@ -1734,9 +1736,11 @@ def count_sentences(text):
     tokenized_sentences = tokenizer.tokenize(text)
     return len(tokenized_sentences)
 
+
 def count_hindi_num_sentences(text):
-    sentences = re.split(r'(?<=[।!?])\s*', text)
+    sentences = re.split(r"(?<=[।!?])\s*", text)
     return len([s for s in sentences if s.strip()])
+
 
 def generate_keywords(num_keywords):
     """Randomly generates a few keywords."""
@@ -1887,7 +1891,7 @@ class ResponseLanguageChecker(Instruction):
         try:
             assert isinstance(value, str)
         except:
-            print('Failed for assertion, got non str type input,', value)
+            print("Failed for assertion, got non str type input,", value)
             return False
 
         try:
@@ -1969,7 +1973,7 @@ class NumberOfSentences(Instruction):
             lang = langdetect.detect(value)
         except:
             print("Failed to detect language, got value:", value)
-            lang = 'en'
+            lang = "en"
         if lang == "th":
             # print(f"shervin1. lang is {lang}")
             # print(value)
@@ -1978,7 +1982,7 @@ class NumberOfSentences(Instruction):
                 [len(sent_tokenize_thai(line)) for line in value.splitlines()]
             )
             # print(f"num sentences: {num_sentences}")
-        elif lang == 'hi':
+        elif lang == "hi":
             num_sentences = count_hindi_num_sentences(value)
         elif lang in ["zh", "zh-cn", "zh-tw", "ja"]:
             # print(f"shervin2. lang is {lang}")
@@ -2222,7 +2226,7 @@ class HighlightSectionChecker(Instruction):
         try:
             highlights = re.findall(r"\*[^\n\*]*\*", value)
         except:
-            print('Failed for highlights, got value: ', value)
+            print("Failed for highlights, got value: ", value)
             return False
         double_highlights = re.findall(r"\*\*[^\n\*]*\*\*", value)
         for highlight in highlights:
@@ -2589,9 +2593,11 @@ class KeywordFrequencyChecker(Instruction):
     def check_following(self, value):
         """Checks if the response contain the keyword with required frequency."""
         try:
-            actual_occurrences = len(re.findall(self._keyword, value, flags=re.IGNORECASE))
+            actual_occurrences = len(
+                re.findall(self._keyword, value, flags=re.IGNORECASE)
+            )
         except:
-            print('Failed to parse for', value)
+            print("Failed to parse for", value)
             return False
 
         if self._comparison_relation == _COMPARISON_RELATION[0]:
@@ -2655,7 +2661,7 @@ class NumberOfWords(Instruction):
             lang = langdetect.detect(value)
         except:
             print("Failed to detect language, got value:", value)
-            lang = 'en'
+            lang = "en"
         if lang == "th":
             # print(f"shervin4. lang is {lang}")
             # print(value)
@@ -3374,9 +3380,14 @@ class QuotationChecker(Instruction):
     def check_following(self, value):
         """Checks if the response is wrapped with double quotation marks."""
         value = value.strip()
-        return len(value) > 1 and (value[0] == '"' and value[-1] == '"' or   # e.g., English
-                                   value[0] == '“' and value[-1] == '”' or   # e.g., Chinese
-                                   value[0] == '「' and value[-1] == '」')    # e.g., Japanese
+        return len(value) > 1 and (
+            value[0] == '"'
+            and value[-1] == '"'  # e.g., English
+            or value[0] == "“"
+            and value[-1] == "”"  # e.g., Chinese
+            or value[0] == "「"
+            and value[-1] == "」"
+        )  # e.g., Japanese
 
 
 # Define instruction dicts
