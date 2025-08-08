@@ -15,10 +15,9 @@ import os
 
 import anthropic
 import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google.generativeai.types import HarmBlockThreshold, HarmCategory
 from mistralai import Mistral
 from openai import OpenAI
-
 from utils import GenerationSetting
 
 
@@ -34,23 +33,26 @@ def get_api_bot(model_name, generation_setting):
     else:
         raise NotImplementedError(f"The model {model_name} is not supported yet.")
 
+
 class APIBot:
 
     def __init__(self, model, generation_config):
         self.model_name = model
         self.generation_config = generation_config
 
-    def generate(self, messages):
-        ...
+    def generate(self, messages): ...
 
-    def check_name(self, name):
-        ...
+    def check_name(self, name): ...
 
 
 class OpenAIBot(APIBot):
     def __init__(self, model, generation_config):
         super().__init__(model, generation_config)
-        self.client = OpenAI()
+        if "/" in self.model_name:
+            self.base_url = "http://localhost:8000/v1"
+        else:
+            self.base_url = None
+        self.client = OpenAI(base_url=self.base_url)
 
     def generate(self, messages) -> str:
         response = self.client.chat.completions.create(
@@ -59,25 +61,30 @@ class OpenAIBot(APIBot):
             max_completion_tokens=self.generation_config.max_new_tokens,
             seed=self.generation_config.seed,
             top_p=self.generation_config.top_p,
-            temperature=self.generation_config.temperature
+            temperature=self.generation_config.temperature,
         )
         return response.choices[0].message.content
 
     @staticmethod
     def check_name(name):
-        if name in ['o1-preview',
-                    'o1-mini',
-                    'o1-preview-2024-09-12',
-                    'o1-mini-2024-09-12',
-                    'gpt-4-turbo',
-                    'gpt-4-turbo-2024-04-09',
-                    'gpt-4-turbo-preview',
-                    'gpt-4-0125-preview',
-                    'gpt-4-1106-preview',
-                    'gpt-4',
-                    'gpt-4-0613',
-                    'gpt-4o-2024-08-06'
-                ]:
+        if (
+            name
+            in [
+                "o1-preview",
+                "o1-mini",
+                "o1-preview-2024-09-12",
+                "o1-mini-2024-09-12",
+                "gpt-4-turbo",
+                "gpt-4-turbo-2024-04-09",
+                "gpt-4-turbo-preview",
+                "gpt-4-0125-preview",
+                "gpt-4-1106-preview",
+                "gpt-4",
+                "gpt-4-0613",
+                "gpt-4o-2024-08-06",
+            ]
+            or "/" in name
+        ):
             return True
         return False
 
@@ -96,13 +103,17 @@ class AnthropicBot(APIBot):
             max_tokens=self.generation_config.max_new_tokens,
             messages=messages,
             temperature=self.generation_config.temperature,
-            top_p=self.generation_config.top_p
+            top_p=self.generation_config.top_p,
         )
         return response.content[0].text
 
     @staticmethod
     def check_name(name):
-        if name in ['claude-3-haiku-20240307', 'claude-3-sonnet-20240229', 'claude-3-5-sonnet-20240620']:
+        if name in [
+            "claude-3-haiku-20240307",
+            "claude-3-sonnet-20240229",
+            "claude-3-5-sonnet-20240620",
+        ]:
             return True
         return False
 
@@ -112,40 +123,37 @@ class GeminiBot(APIBot):
         super().__init__(model, generation_config)
         # Configure the genai client with the API key
 
-        genai.configure(api_key=os.environ['GEMINI_API_KEY'])
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
         self.model = genai.GenerativeModel(model)
         self.generation_config = generation_config
 
     def generate(self, messages):
-        role_map = {
-            'user': 'user',
-            'assistant': 'model'
-        }
+        role_map = {"user": "user", "assistant": "model"}
         history = []
         for m in messages:
-            history.append({'role': role_map[m['role']], 'parts': m['content']})
-        chat =  self.model.start_chat(history=history)
+            history.append({"role": role_map[m["role"]], "parts": m["content"]})
+        chat = self.model.start_chat(history=history)
         response = chat.send_message(
-            messages[-1]['content'],
+            messages[-1]["content"],
             generation_config={
                 "temperature": self.generation_config.temperature,
                 "top_p": self.generation_config.top_p,
-                "max_output_tokens": self.generation_config.max_new_tokens
+                "max_output_tokens": self.generation_config.max_new_tokens,
             },
             safety_settings={
                 HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
+            },
         )
         return response.text
 
     @staticmethod
     def check_name(name):
         if name in [
-            'gemini-1.5-flash',
-            'gemini-1.5-pro',
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
         ]:
             return True
         return False
@@ -165,28 +173,29 @@ class MistralBot(APIBot):
             temperature=self.generation_config.temperature,
             random_seed=self.generation_config.seed,
             max_tokens=self.generation_config.max_new_tokens,
-            top_p=self.generation_config.top_p
+            top_p=self.generation_config.top_p,
         )
         return response.choices[0].message.content
 
     @staticmethod
     def check_name(name):
         if name in [
-            'mistral-large-latest',
-            'mistral-small-latest',
+            "mistral-large-latest",
+            "mistral-small-latest",
             # Add any other supported model names here
         ]:
             return True
         return False
 
 
-
-if __name__ == '__main__':
-    generation_setting = GenerationSetting(max_new_tokens=1024, temperature=0.6, top_p=0.9)
-    bot = get_api_bot('mistral-small-latest',generation_setting)
+if __name__ == "__main__":
+    generation_setting = GenerationSetting(
+        max_new_tokens=1024, temperature=0.6, top_p=0.9
+    )
+    bot = get_api_bot("mistral-small-latest", generation_setting)
     history = [
-        {'role': 'user', 'content': 'create an equation.'},
-        {'role': 'assistant', 'content': 'x^2-4x+4=0'},
-        {'role': 'user', 'content': 'solve the equation.'}
+        {"role": "user", "content": "create an equation."},
+        {"role": "assistant", "content": "x^2-4x+4=0"},
+        {"role": "user", "content": "solve the equation."},
     ]
     print(bot.generate(history))
