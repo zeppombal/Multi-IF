@@ -21,10 +21,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 
 import pandas as pd
-from tqdm import tqdm
-
 from api_client import get_api_bot
 from metrics import MultiTurnInstructionFollowingPromptSolution
+from tqdm import tqdm
 from utils import GenerationSetting
 
 logger = logging.getLogger(__name__)
@@ -40,28 +39,30 @@ def max_retry_wrapper(api_bot, messages, max_retry=3):
             return response
         except Exception as e:
             print(messages)
-            logger.error(f"API call failed with error: {e}. Retries left: {attempt - 1}")
+            logger.error(
+                f"API call failed with error: {e}. Retries left: {attempt - 1}"
+            )
             time.sleep(1)  # Brief pause before retrying
-    return f'[MAX_RETRY=0] Failed.'
+    return f"[MAX_RETRY=0] Failed."
 
 
 def process_row(api_bot, row, step, max_retry):
     try:
         if step == 1:
-            messages = [json.loads(row['turn_1_prompt'])]
+            messages = [json.loads(row["turn_1_prompt"])]
         else:
-            messages = json.loads(row['turns']) + [
-                {'role': 'assistant', 'content': row['responses']},
-                json.loads(row[f'turn_{step}_prompt']),
+            messages = json.loads(row["turns"]) + [
+                {"role": "assistant", "content": row["responses"]},
+                json.loads(row[f"turn_{step}_prompt"]),
             ]
         response = max_retry_wrapper(api_bot, messages, max_retry)
         updated_turns = json.dumps(messages)
-        status = 'success' if not response.startswith('[MAX_RETRY') else 'failed'
+        status = "success" if not response.startswith("[MAX_RETRY") else "failed"
         return updated_turns, response, status
     except Exception as e:
         logger.exception(f"Error processing row: {e}")
         print(row)
-        return row.get('turns', '[]'), f'Exception: {e}', 'exception'
+        return row.get("turns", "[]"), f"Exception: {e}", "exception"
 
 
 def step_fn_api(
@@ -82,17 +83,21 @@ def step_fn_api(
             output_df["responses"] = pd.array(["None"] * len(output_df), dtype="string")
         if "status" not in output_df.columns:
             output_df["status"] = pd.array(["pending"] * len(output_df), dtype="string")
-        output_df['turn_index'] = step  # Update to current step
+        output_df["turn_index"] = step  # Update to current step
 
     rows_to_process = []
     for idx, row in input_df.iterrows():
-        current_turn_index = row.get('turn_index', 0)
-        response = row.get('responses', 'None')
-        if current_turn_index > step or  (current_turn_index == step and not response.startswith('[MAX_RETRY')):
+        current_turn_index = row.get("turn_index", 0)
+        response = row.get("responses", "None")
+        if current_turn_index > step or (
+            current_turn_index == step and not response.startswith("[MAX_RETRY")
+        ):
             print(f"Skipped idx: {idx}")
             continue  # Skip already processed rows
         rows_to_process.append((idx, row))
-    logger.info(f"Processing {len(rows_to_process)} out of {total_loc} rows for step {step}")
+    logger.info(
+        f"Processing {len(rows_to_process)} out of {total_loc} rows for step {step}"
+    )
 
     results = {}
 
@@ -108,7 +113,11 @@ def step_fn_api(
                 results[idx] = (updated_turns, response, status)
             except Exception as exc:
                 logger.error(f"Row {idx} generated an exception: {exc}")
-                results[idx] = (output_df.at[idx, "turns"], f'Exception: {exc}', 'exception')
+                results[idx] = (
+                    output_df.at[idx, "turns"],
+                    f"Exception: {exc}",
+                    "exception",
+                )
 
     with lock:
         for idx, (turns, response, status) in results.items():
@@ -135,10 +144,14 @@ def consolidate_results(api_model_name, output_filepath_prefix, steps):
                 # Merge on a unique identifier; assuming the index serves as a unique identifier
                 consolidated_df = consolidated_df.combine_first(temp_df)
         else:
-            logger.warning(f"Step {step} file {step_csv} does not exist and will be skipped.")
+            logger.warning(
+                f"Step {step} file {step_csv} does not exist and will be skipped."
+            )
 
     if consolidated_df is not None:
-        consolidated_csv = f"results/{api_model_name}/{output_filepath_prefix}_consolidated.csv"
+        consolidated_csv = (
+            f"results/{api_model_name}/{output_filepath_prefix}_consolidated.csv"
+        )
         consolidated_df.to_csv(consolidated_csv, index=False)
         logger.info(f"All steps consolidated into {consolidated_csv}")
     else:
@@ -167,7 +180,7 @@ def main(
         output_filepath = (
             f"results/{api_model_name}/{output_filepath_prefix}_step_{step}.csv"
         )
-        os.makedirs(f'results/{api_model_name}', exist_ok=True)
+        os.makedirs(f"results/{api_model_name}", exist_ok=True)
         step_output_df = step_fn_api(
             api_bot=api_bot,
             input_df=step_input_df,
@@ -189,9 +202,7 @@ def main(
 
 
 def run_metric(
-    api_model_name,
-    output_filepath_prefix: str = "eval_result",
-    step: int = 1
+    api_model_name, output_filepath_prefix: str = "eval_result", step: int = 1
 ):
     step_output_df = None
     step_csv = f"results/{api_model_name}/{output_filepath_prefix}_step_{step}.csv"
@@ -207,7 +218,9 @@ def run_metric(
             step_output_df
         )
         metric_result_df = pd.DataFrame.from_dict(metric_result, orient="index")
-        metric_result_df.to_csv(f"results/{api_model_name}/{output_filepath_prefix}_step_{step}_metric.csv")
+        metric_result_df.to_csv(
+            f"results/{api_model_name}/{output_filepath_prefix}_step_{step}_metric.csv"
+        )
         logger.info(f"Step {step} metrics:\n{metric_result}")
         return metric_result
     else:
@@ -215,7 +228,7 @@ def run_metric(
         return {}
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--api_model_name", type=str, default="o1-mini")
     parser.add_argument(
@@ -224,25 +237,31 @@ if __name__ == '__main__':
     parser.add_argument("--need_write2file", type=bool, default=True)
     parser.add_argument("--output_filepath_prefix", type=str, default="eval_result")
 
-    parser.add_argument('--max_new_tokens', type=int, default=1024, help='o1 recommends 25000')
-    parser.add_argument('--temperature', type=float, default=0.6)
-    parser.add_argument('--top_p', type=float, default=0.9)
-    parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--max_workers', type=int, default=5, help='Number of threads for concurrency')
+    parser.add_argument(
+        "--max_new_tokens", type=int, default=1024, help="o1 recommends 25000"
+    )
+    parser.add_argument("--temperature", type=float, default=0.6)
+    parser.add_argument("--top_p", type=float, default=0.9)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--max_workers", type=int, default=5, help="Number of threads for concurrency"
+    )
 
     # New steps argument
     parser.add_argument(
-        '--steps',
+        "--steps",
         type=int,
-        nargs='+',
+        nargs="+",
         default=[1, 2, 3],
-        help='List of steps to process (e.g., --steps 1 2 3)'
+        help="List of steps to process (e.g., --steps 1 2 3)",
     )
 
     args = parser.parse_args()
-    logger.info(f'Args: \n  max_new_tokens: {args.max_new_tokens}, \n  temperature: {args.temperature}, \n  top_p: {args.top_p}, \n  seed: {args.seed}, \n  max_workers: {args.max_workers}, \n  steps: {args.steps}')
+    logger.info(
+        f"Args: \n  max_new_tokens: {args.max_new_tokens}, \n  temperature: {args.temperature}, \n  top_p: {args.top_p}, \n  seed: {args.seed}, \n  max_workers: {args.max_workers}, \n  steps: {args.steps}"
+    )
 
-    if 'o1' in args.api_model_name:
+    if "o1" in args.api_model_name:
         # o1 doesn't allow for customized top_p and temperature.
         args.top_p = 1
         args.temperature = 1
@@ -250,7 +269,7 @@ if __name__ == '__main__':
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
         top_p=args.top_p,
-        seed=args.seed
+        seed=args.seed,
     )
 
     main(
